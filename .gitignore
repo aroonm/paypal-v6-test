@@ -1,0 +1,12 @@
+# environment variables
+.env
+
+# node modules
+node_modules/
+
+# logs
+npm-debug.log
+yarn-error.log
+
+# macOS
+.DS_Store

@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>PayPal Checkout</title>
+</head>
+
+<body>
+    <h2>Checkout</h2>
+    <div id="buttons">
+        <paypal-button hidden></paypal-button>
+        <paypal-pay-later-button hidden></paypal-pay-later-button>
+        <paypal-credit-button hidden></paypal-credit-button>
+    </div>
+    <div id="result-message"></div>
+
+    <script>
+
+        /* --------------------------
+           Create Order
+        -------------------------- */
+
+        async function createOrder() {
+
+            const response = await fetch("/api/orders", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sku: "BDUR24586" })
+            });
+
+            const { id } = await response.json();
+
+            return { orderId: id };
+
+        }
+
+
+        /* --------------------------
+           Capture Payment
+        -------------------------- */
+
+        async function captureOrder({ orderId }) {
+
+            const response = await fetch(`/api/orders/${orderId}/capture`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" }
+            });
+
+            return response.json();
+
+        }
+
+
+        /* --------------------------
+           Shared Payment Callbacks
+        -------------------------- */
+
+        const paymentSessionOptions = {
+
+            async onApprove(data) {
+
+                try {
+
+                    const orderData = await captureOrder({
+                        orderId: data.orderId
+                    });
+
+                    console.log("Payment captured:", orderData);
+
+                    document.getElementById("result-message").innerHTML =
+                        `<p style="color:green;">Payment successful!</p>`;
+
+                } catch (error) {
+
+                    console.error("Capture error:", error);
+
+                }
+
+            },
+
+            onCancel() {
+
+                document.getElementById("result-message").innerHTML =
+                    `<p style="color:orange;">Payment cancelled</p>`;
+
+            },
+
+            onError(error) {
+
+                console.error("PayPal error:", error);
+
+                document.getElementById("result-message").innerHTML =
+                    `<p style="color:red;">Payment error occurred.</p>`;
+
+            }
+
+        };
+
+        /* --------------------------
+           PayPal Button
+        -------------------------- */
+
+        async function setUpPayPalButton(sdkInstance) {
+            const session = sdkInstance.createPayPalOneTimePaymentSession(paymentSessionOptions);
+            const button = document.querySelector("paypal-button");
+            button.removeAttribute("hidden");
+            button.addEventListener("click", async () => {
+
+                await session.start(
+                    { presentationMode: "auto" },
+                    createOrder()
+                );
+            });
+        }
+
+        /* --------------------------
+           Pay Later Button
+        -------------------------- */
+
+        async function setUpPayLaterButton(sdkInstance, details) {
+
+            const session =
+                sdkInstance.createPayLaterOneTimePaymentSession(paymentSessionOptions);
+
+            const button = document.querySelector("paypal-pay-later-button");
+
+            button.productCode = details.productCode;
+            button.countryCode = details.countryCode;
+
+            button.removeAttribute("hidden");
+
+            button.addEventListener("click", async () => {
+
+                await session.start(
+                    { presentationMode: "auto" },
+                    createOrder()
+                );
+
+            });
+
+        }
+
+
+        /* --------------------------
+           PayPal Credit Button
+        -------------------------- */
+
+        async function setUpPayPalCreditButton(sdkInstance, details) {
+
+            const session =
+                sdkInstance.createPayPalCreditOneTimePaymentSession(paymentSessionOptions);
+
+            const button = document.querySelector("paypal-credit-button");
+
+            button.countryCode = details.countryCode;
+
+            button.removeAttribute("hidden");
+
+            button.addEventListener("click", async () => {
+
+                await session.start(
+                    { presentationMode: "auto" },
+                    createOrder()
+                );
+
+            });
+
+        }
+
+
+        /* --------------------------
+           SDK Initialization
+        -------------------------- */
+
+        async function onLoad() {
+
+            try {
+
+                const sdkInstance = await window.paypal.createInstance({
+                    clientId: "ATddmR4FT8rzsAdkS56logbM_JkDQjrCnsohtWdAdpaQxtQ-nEoNKcsukviWxqounTQSVb4e2JeB4d6T",
+                    components: ["paypal-payments"],
+                    locale: "fr-CA",
+                });
+
+                const paymentMethods = await sdkInstance.findEligibleMethods({
+                    currencyCode: "USD",
+                    countryCode: "US",
+                });
+
+                console.log(paymentMethods.isEligible("paylater"));
+
+                if (paymentMethods.isEligible("paypal")) {
+                    setUpPayPalButton(sdkInstance);
+                }
+
+                if (paymentMethods.isEligible("paylater")) {
+                    const details = paymentMethods.getDetails("paylater");
+                    console.log(details);
+                    setUpPayLaterButton(sdkInstance, details);
+                }
+
+                if (paymentMethods.isEligible("credit")) {
+                    const details = paymentMethods.getDetails("credit");
+                    setUpPayPalCreditButton(sdkInstance, details);
+                }
+
+            } catch (error) {
+
+                console.error("SDK init error:", error);
+
+            }
+
+        }
+
+    </script>
+
+
+    <script async src="https://www.sandbox.paypal.com/web-sdk/v6/core" onload="onLoad()">
+    </script>
+
+</body>
+
+</html>

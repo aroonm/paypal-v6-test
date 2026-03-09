@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="https://www.sandbox.paypal.com/web-sdk/v6/core"></script>
+    <script src="https://www.sandbox.paypal.com/web-sdk/v6/paypal-messages"></script>
+</head>
+
+<body>
+
+    <h2>Pay Later Messaging v6 Example</h2>
+
+    <paypal-message 
+        amount="400.00" 
+        currency-code="CAD" 
+        logo-type="MONOGRAM" 
+        text-color="MONOCHROME">
+    </paypal-message>
+
+    <script>
+        (async () => {
+
+            // Get token from server
+            const res = await fetch("/client-token");
+            const { clientToken } = await res.json();
+
+            // Initialize SDK
+            const sdkInstance = await window.paypal.createInstance({ clientToken, locale: "fr-CA" });
+            const messagesInstance = sdkInstance.createPayPalMessages();
+
+            // Get message element and fetch message content
+            const messageElement = document.querySelector("paypal-message");
+            const options = messageElement.getFetchContentOptions();
+            const content = await messagesInstance.fetchContent(options);
+
+            // Render message
+            messageElement.setContent(content);
+
+        })();
+    </script>
+
+</body>
+
+</html>
